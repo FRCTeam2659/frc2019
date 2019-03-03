@@ -20,12 +20,10 @@ public class Auteleop extends AutoModeBase {
 
     private static final TrajectoryGenerator mTrajectoryGenerator = TrajectoryGenerator.getInstance();
     private final Vision mVision = Vision.getInstance();
-    private final boolean mStartedLeft;
 
     private DriveTrajectory mAuteleopTrajectory;
 
-    public Auteleop(boolean robotStartedOnLeft) {
-        mStartedLeft = robotStartedOnLeft;
+    public Auteleop() {
         List<Pose2d> waypoints = new ArrayList<>();
         waypoints.add(RobotState.getInstance().getLatestFieldToVehicle().getValue());
         waypoints.add(mVision.getCoordinate());

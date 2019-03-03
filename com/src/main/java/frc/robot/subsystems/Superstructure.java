@@ -14,9 +14,6 @@ public class Superstructure extends Subsystem {
     private MotorHatchGrabber mHatchIntake = MotorHatchGrabber.getInstance();
 
     private boolean isCargo = false;
-    private boolean isWristJogging = false;
-    private boolean isElbowJogging = false;
-    private boolean isElevatorJogging = false;
     private SuperstructureStates currentState;
 
     public enum SuperstructureStates {
@@ -167,42 +164,34 @@ public class Superstructure extends Subsystem {
     }
 
     public synchronized void setElevatorHeight(double height) {
-        isElevatorJogging = false;
         mElevator.setMotionMagicPosition(height);
     }
 
     public synchronized void setElbowAngle(double angle) {
-        isWristJogging = false;
         mElbow.setMotionProfileAngle(angle);
     }
 
     public synchronized void setWristAngle(double angle) {
-        isWristJogging = false;
         mWrist.setMotionProfileAngle(angle);
     }
 
     public synchronized void setElevatorJog(double relative_inches) {
-        isElevatorJogging = true;
         mElevator.setJogElevator(relative_inches);
     }
 
     public synchronized void setElbowManually(double percentOutput) {
-        isElbowJogging = true;
         mElbow.setOpenLoop(percentOutput);
     }
 
     public synchronized void setWristJog(double percentOutput) {
-        isWristJogging = true;
         mWrist.setOpenLoop(percentOutput);
     }
 
     public synchronized void setElbowJogAngle(double relativeAngle) {
-        isWristJogging = true;
         mElbow.setJogElbow(relativeAngle);
     }
 
     public synchronized void setWristJogAngle(double relativeAngle) {
-        isWristJogging = true;
         mWrist.setJogWrist(relativeAngle);
     }
 }

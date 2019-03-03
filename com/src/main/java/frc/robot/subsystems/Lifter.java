@@ -1,8 +1,6 @@
 package frc.robot.subsystems;
 
 public class Lifter extends Subsystem {
-        private static final boolean kDeploySolenoidState = true;
-
         private static Lifter mInstance = null;
         private boolean mDeployed;
 

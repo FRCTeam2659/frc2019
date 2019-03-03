@@ -20,7 +20,9 @@ import frc.lib.util.DriveSignal;
 import frc.lib.util.TortoDriveHelper;
 import frc.robot.auto.AutoModeExecutor;
 import frc.robot.auto.modes.Auteleop;
+import frc.robot.auto.modes.Backlash;
 import frc.robot.auto.modes.CrossAutoLineMode;
+import frc.robot.auto.modes.Frontlash;
 import frc.robot.auto.modes.Yolo;
 import frc.robot.loops.Looper;
 import frc.robot.paths.TrajectoryGenerator;
@@ -71,7 +73,8 @@ public class Robot extends IterativeRobot {
     private Joystick mOperatorStick = new Joystick(1);
     
     private AutoModeExecutor mAutoModeExecutor;
-    private SendableChooser mStartPositionChooser;
+    private SendableChooser mStartPositionChooser, mAutoModeChooser;
+    private boolean startOnLeft;
     private DriveControlState mDriveControlState = DriveControlState.OPEN_LOOP;
     private boolean isTriggered = false;
     private boolean isHatchTriggered = false;
@@ -84,6 +87,12 @@ public class Robot extends IterativeRobot {
         LEFT,
         CENTER,
         RIGHT
+    }
+
+    enum AutoMode {
+        YOLO,
+        FRONTLASH,
+        BACKLASH
     }
 
     enum DriveControlState {
@@ -99,6 +108,11 @@ public class Robot extends IterativeRobot {
             mStartPositionChooser.addObject("Center", StartingPosition.CENTER);
             mStartPositionChooser.addObject("Left", StartingPosition.LEFT);
             SmartDashboard.putData("Starting Position", mStartPositionChooser);
+            mAutoModeChooser = new SendableChooser<>();
+            mAutoModeChooser.addObject("Yolo 1 hatch + 1 cargo", AutoMode.YOLO);
+            mAutoModeChooser.addObject("Frontlash 2 hatches", AutoMode.FRONTLASH);
+            mAutoModeChooser.addObject("Backlash 2 cargos", AutoMode.BACKLASH);
+            SmartDashboard.putData("Auto Mode", mAutoModeChooser);
             mAutoModeExecutor = new AutoModeExecutor();
 
             CrashTracker.logRobotInit();
@@ -148,17 +162,25 @@ public class Robot extends IterativeRobot {
 
             Drive.getInstance().zeroSensors();
             if (mStartPositionChooser.getSelected() == StartingPosition.RIGHT)
-                mAutoModeExecutor.setAutoMode(new Yolo(false));
+                startOnLeft = false;
             else if (mStartPositionChooser.getSelected() == StartingPosition.LEFT)
-                mAutoModeExecutor.setAutoMode(new Yolo(true));
+                startOnLeft = true;
             else if (mStartPositionChooser.getSelected() == StartingPosition.CENTER)
                 mAutoModeExecutor.setAutoMode(new CrossAutoLineMode());
             else
                 mAutoModeExecutor.setAutoMode(new CrossAutoLineMode());
+
+            if (mAutoModeChooser.getSelected() == AutoMode.YOLO)
+                mAutoModeExecutor.setAutoMode(new Yolo(startOnLeft));
+            else if (mAutoModeChooser.getSelected() == AutoMode.FRONTLASH)
+                mAutoModeExecutor.setAutoMode(new Frontlash(startOnLeft));
+            else if (mAutoModeChooser.getSelected() == AutoMode.BACKLASH)
+                mAutoModeExecutor.setAutoMode(new Backlash(startOnLeft));
+            else
+                mAutoModeExecutor.setAutoMode(new CrossAutoLineMode());
+
             mAutoModeExecutor.start();
-
             mEnabledLooper.start();
-
         } catch (Throwable t) {
             CrashTracker.logThrowableCrash(t);
             throw t;
@@ -235,7 +257,7 @@ public class Robot extends IterativeRobot {
         try {
             if (mDriveStick.getRawButton(1) || false) {
                 if (mDriveControlState != DriveControlState.AUTELEOP) {
-                    mAutoModeExecutor.setAutoMode(new Auteleop(false));
+                    mAutoModeExecutor.setAutoMode(new Auteleop());
                     mAutoModeExecutor.start();
                     mDriveControlState = DriveControlState.AUTELEOP;
                 }

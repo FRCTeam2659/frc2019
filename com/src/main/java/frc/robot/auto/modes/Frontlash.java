@@ -15,7 +15,7 @@ public class Frontlash extends AutoModeBase {
     private static final TrajectoryGenerator mTrajectoryGenerator = TrajectoryGenerator.getInstance();
     private final boolean mStartedLeft;
     private DriveTrajectory mFrontlash1, mFrontlash2, mFrontlash3, mFrontlash4;
-    private final double mFrontlash1WaitTime, mFrontlash3WaitTime, mFrontlash4WaitTime;
+    private final double mFrontlash1WaitTime;
 
     public Frontlash(boolean robotStartedOnLeft) {
         mStartedLeft = robotStartedOnLeft;
@@ -25,8 +25,6 @@ public class Frontlash extends AutoModeBase {
         mFrontlash4 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().hatch2ToFarMiddleShip.get(mStartedLeft));
 
         mFrontlash1WaitTime = mTrajectoryGenerator.getTrajectorySet().sideStartToNearMiddleShip.get(mStartedLeft).getLastState().t() - 1.5;
-        mFrontlash3WaitTime = mTrajectoryGenerator.getTrajectorySet().bufferToCargo1.get(mStartedLeft).getLastState().t() - 2.0;
-        mFrontlash4WaitTime = mTrajectoryGenerator.getTrajectorySet().cargo1ToSlot1.get(mStartedLeft).getLastState().t() - 1.5;
     }
 
     @Override

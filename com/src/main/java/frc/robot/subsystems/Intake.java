@@ -16,7 +16,7 @@ public class Intake extends Subsystem {
         private static Intake mInstance;
         private final TalonSRX mMaster;
         private final Solenoid mSolenoid;
-        private Ultrasonic mUltrasonic;
+        private Ultrasonic mUltrasonic; // will use a limit switch
         private boolean isHatchClamped = false;
     
         private Intake() {
