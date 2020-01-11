@@ -28,7 +28,7 @@ public class DriveTrajectory implements Action {
 
     @Override
     public boolean isFinished() {
-        if (mDrive.isDoneWithTrajectory()) {
+        if (mDrive.isDoneWithTrajectory() || mDrive.mOverrideTrajectory) {
             System.out.println("Trajectory finished");
             return true;
         }
@@ -47,7 +47,8 @@ public class DriveTrajectory implements Action {
     public void start() {
         System.out.println("Starting trajectory! (length=" + mTrajectory.getRemainingProgress() + ")");
         if (mResetPose) {
-        	mDrive.setHighGear(true);
+            mDrive.zeroSensors();
+        	mDrive.setHighGear(true); //need to change this later -- changed
             mRobotState.reset(Timer.getFPGATimestamp(), mTrajectory.getState().state().getPose());
         }
         mDrive.setTrajectory(mTrajectory);

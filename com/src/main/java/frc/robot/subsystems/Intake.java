@@ -2,32 +2,32 @@ package frc.robot.subsystems;
 
 import com.ctre.phoenix.motorcontrol.ControlMode;
 import com.ctre.phoenix.motorcontrol.can.TalonSRX;
+import com.ctre.phoenix.motorcontrol.can.VictorSPX;
 
-import edu.wpi.first.wpilibj.DigitalOutput;
 import edu.wpi.first.wpilibj.Solenoid;
-import edu.wpi.first.wpilibj.Ultrasonic;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import frc.lib.drivers.TalonSRXFactory;
+import edu.wpi.first.wpilibj.Timer;
 import frc.robot.Constants;
 import frc.robot.loops.ILooper;
 import frc.robot.loops.Loop;
 
 public class Intake extends Subsystem {
         private static Intake mInstance;
+        //private final VictorSPX mMaster;
         private final TalonSRX mMaster;
         private final Solenoid mSolenoid;
-        private Ultrasonic mUltrasonic; // will use a limit switch
+        private final Solenoid mPusherSolenoid;
         private boolean isHatchClamped = false;
     
         private Intake() {
-            mMaster = TalonSRXFactory.createDefaultTalon(Constants.kIntakeMasterId);
+            //mMaster = new VictorSPX(Constants.kIntakeMasterId);
+            mMaster = new TalonSRX(Constants.kIntakeMasterId);
             mMaster.set(ControlMode.PercentOutput, 0);
             mMaster.setInverted(true);
             mMaster.configVoltageCompSaturation(12.0, Constants.kLongCANTimeoutMs);
             mMaster.enableVoltageCompensation(true);
 
             mSolenoid = new Solenoid(Constants.kIntakeSolenoidId);
-            mUltrasonic = new Ultrasonic(3, 0);
+            mPusherSolenoid = new Solenoid(Constants.kPusherSolenoidId);
         }
     
         public synchronized static Intake getInstance() {
@@ -39,7 +39,6 @@ public class Intake extends Subsystem {
     
         @Override
         public void outputTelemetry() {
-            SmartDashboard.putNumber("ultrasonic distance", mUltrasonic.getRangeInches());
         }
     
         @Override
@@ -76,7 +75,7 @@ public class Intake extends Subsystem {
         }
     
         public synchronized void strongShoot() {
-            setPower(-1.0);
+            setPower(-0.8);
         }
 
         public synchronized void weakShoot() {
@@ -87,18 +86,30 @@ public class Intake extends Subsystem {
             setPower(1.0);
         }
     
-        public void triggerHatch() {
-            mSolenoid.set(isHatchClamped);
-            isHatchClamped = !isHatchClamped;
-        }
         public void clampHatch() {
             isHatchClamped = true;
             mSolenoid.set(false);
+            restorePusher();
         }
 
         public void releaseHatch() {
             isHatchClamped = false;
             mSolenoid.set(true);
+            autoPush();
+        }
+
+        public void autoPush() {
+            actuatePusher();
+            Timer.delay(0.35);
+            restorePusher();
+        }
+
+        public void actuatePusher() {
+            mPusherSolenoid.set(true);
+        }
+
+        public void restorePusher() {
+            mPusherSolenoid.set(false);
         }
 
         public boolean isHatchClamped() {
@@ -106,8 +117,6 @@ public class Intake extends Subsystem {
         }
 
         public boolean isCargoLoaded() {
-            if (mUltrasonic.getRangeInches() < 6)
-                return true;
             return false;
         }
     

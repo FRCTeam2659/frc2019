@@ -11,7 +11,7 @@ public class Constants {
 
     // Wheels
     public static final double kDriveWheelTrackWidthInches = 26;
-    public static final double kDriveWheelDiameterInches = 6.25;
+    public static final double kDriveWheelDiameterInches = 6.22;
     public static final double kDriveWheelRadiusInches = kDriveWheelDiameterInches / 2.0;
     public static final double kTrackScrubFactor = 1.0;  // Tune me!
 
@@ -23,17 +23,9 @@ public class Constants {
     public static final double kDriveKv = 0.135;  // V per rad/s
     public static final double kDriveKa = 0.012;  // V per rad/s^2
 
-    // Geometry
-    public static final double kCenterToFrontBumperDistance = 38.25 / 2.0;
-    public static final double kCenterToRearBumperDistance = 38.25 / 2.0;
-    public static final double kCenterToSideBumperDistance = 33.75 / 2.0;
     /* CONTROL LOOP GAINS */
 
-    // Gearing and mechanical constants.
-    public static final double kDriveDownShiftVelocity = 9.5 * 12.0;  // inches per second
-    public static final double kDriveDownShiftAngularVelocity = Math.PI / 2.0; // rad/sec
-    public static final double kDriveUpShiftVelocity = 11.0 * 12.0;  // inches per second
-
+    // Mechanical constants.
     public static final double kPathKX = 4.0;  // units/s per unit of error
     public static final double kPathLookaheadTime = 0.4;  // seconds to look ahead along the path for steering
     public static final double kPathMinLookaheadDistance = 24.0;  // inches
@@ -47,7 +39,7 @@ public class Constants {
     public static final int kDriveLowGearVelocityIZone = 0;
     public static final double kDriveVoltageRampRate = 0.0;
 
-    public static final double kDiagonalView = Math.toRadians(68.5);
+    /*public static final double kDiagonalView = Math.toRadians(68.5);
     public static final double kScreenWidth = 480;
     public static final double kScreenHeight = 270;
     public static final double kCenterScreenWidth = kScreenWidth/2 - 0.5;
@@ -59,7 +51,7 @@ public class Constants {
     public static final double kVerticalView = Math.atan(Math.tan(kDiagonalView/2)*(kVerticalAspect/kDiagonalAspect))*2;
     public static final double H_FOCAL_LENGTH = kScreenWidth / (2*Math.tan((kHorizontalView/2)));
     public static final double V_FOCAL_LENGTH = kScreenHeight / (2*Math.tan((kVerticalView/2)));
-    public static final double kVisionTapeWidth = 15.8; //inches
+    public static final double kVisionTapeWidth = 15.8; //inches*/
 
     // PID gains for elevator velocity loop (HIGH GEAR)
     // Units: setpoint, error, and output are in native units per 100ms.
@@ -70,8 +62,8 @@ public class Constants {
     public static final double kElevatorHighGearKf = 0.682; // lower speed:  0.06;
     public static final double kElevatorJogKp = 0.3;
     public static final double kElevatorJogKd = 3.0;
-    public static final double kElevatorFeedforwardNoCube = -0.06;//33000;
-    public static final double kElevatorFeedforwardWithCube = -0.07;//33000;
+    public static final double kElevatorFeedforwardNoCube = -0.06;
+    public static final double kElevatorFeedforwardWithCube = -0.07;
 
     public static final int kElevatorHighGearDeadband = 0;
     public static final int kElevatorHighGearCruiseVelocity = 1500;
@@ -80,36 +72,36 @@ public class Constants {
     public static final double kElevatorRampRate = 0.1;
     
     // gains for elbow
-    public static final double kElbowKp = 1.0;
+    public static final double kElbowKp = 6.6;
     public static final double kElbowKi = 0.0;
-    public static final double kElbowKd = 50.0;
-    public static final double kElbowKf = 1.05;
-    public static final double kElbowJogKp = 2.0;
-    public static final double kElbowJogKd = 40.0;
+    public static final double kElbowKd = 40.0;
+    public static final double kElbowKf = 2.0; 
+    public static final double kElbowClimbKp = 10.0;
+    public static final double kElbowClimbKd = 10.0;
+    public static final double kElbowKa = 0.003;
+    public static final double kElbowKfMultiplier = 0.16;
 
-    public static final int kElbowCruiseVelocity = 1250; //todo: tune me
-    public static final int kElbowAcceleration = 2500; //2000 //todo: tune me
-    public static final double kElbowRampRate = 0.005;
-    public static final double kAutoelbowRampRate = 0.01;
+    public static final int kElbowCruiseVelocity = 480; //todo: tune me
+    public static final int kElbowAcceleration = 1200; //2000 //todo: tune me
+    public static final double kElbowRampRate = 0.05;
 
     // gains for wrist
     public static final double kWristKp = 3.0;
     public static final double kWristKi = 0.0;
-    public static final double kWristKd = 50.0;
-    public static final double kWristKf = 1.05;
+    public static final double kWristKd = 40.0;
+    public static final double kWristKf = 1.0;
     public static final double kWristJogKp = 2.0;
     public static final double kWristJogKd = 40.0;
     //public static final double kWristKaWithCube = 0.006;
     public static final double kWristKa = 0.003;
     public static final double kWristKfMultiplier = 0.1;
-    public static final double kWristElevatorAccelerationMultiplier = -1.0;
+    //public static final double kWristElevatorAccelerationMultiplier = -1.0;
     public static final double kWristEpsilon = 2.0;
 
     public static final int kWristDeadband = 5; //todo: tune me
-    public static final int kWristCruiseVelocity = 2500; //todo: tune me
+    public static final int kWristCruiseVelocity = 3000; //todo: tune me
     public static final int kWristAcceleration = 2500; //2000 //todo: tune me
-    public static final double kWristRampRate = 0.001;
-    public static final double kAutoWristRampRate = 0.01;
+    public static final double kWristRampRate = 0.01;
 
     // gains for hatch intake joint
     public static final double kHatchJointKp = 3.0;
@@ -122,14 +114,14 @@ public class Constants {
     // Do not change anything after this line unless you rewire the robot and
     // update the spreadsheet!
     // Port assignments should match up with the spreadsheet here:
-    // https://docs.google.com/spreadsheets/d/179YszqnEWPWInuHUrYJnYL48LUL7LUhZrnvmNu1kujE/edit#gid=0
+    // https://docs.google.com/spreadsheets/d/1TJjk_zeRJfgE3Ou8_LwR-5cxomrNaOS92bc7FUiBrkQ/edit#gid=0
 
     /* I/O */
     // (Note that if multiple talons are dedicated to a mechanism, any sensors
     // are attached to the master)
 
     public static final int kCANTimeoutMs = 10; //use for on the fly updates
-    public static final int kLongCANTimeoutMs = 100; //use for constructors
+    public static final int kLongCANTimeoutMs = 10; //use for constructors
 
     // Drive
     public static final int kLeftDriveMasterId = 0;
@@ -148,15 +140,20 @@ public class Constants {
     public static final int kWristMasterId = 5;
 
     // Intake
-    public static final int kIntakeMasterId = 0; // VictorSPX
+    public static final int kIntakeMasterId = 6; // VictorSPX: 1 | TalonSRX: 6
 
     // Hatch grabber
-    public static final int kHatchIntakeMasterId = 1; // VictorSRX
+    public static final int kHatchIntakeMasterId = 0; // VictorSRX
     public static final int kHatchJointMasterId = 6; // TalonSRX
+
+    // Lifter
+    public static final int kLifterMasterId = 0; //VictorSP
+    public static final int kLifterSlaveId = 1; //VictorSP
 
     // Solenoids
     public static final int kShifterSolenoidId = 4;
     public static final int kIntakeSolenoidId = 6;
+    public static final int kPusherSolenoidId = 5;
 
     // Sensors
     public static final int kPingChannel = 0;

@@ -7,24 +7,24 @@ package frc.lib.util;
  * turn-in-place maneuvers.
  */
 public class TortoDriveHelper {
-	private static final double kThrottleDeadband = 0.05;
-	private static final double kWheelDeadband = 0.05;
+	private static final double kThrottleDeadband = 0.02;
+	private static final double kWheelDeadband = 0.02;
 
 	// These factor determine how fast the wheel traverses the "non linear" sine curve.
-	private static final double kHighWheelNonLinearity = 0.5; //above 0, 1 is the most curvy
-	private static final double kLowWheelNonLinearity = 0.35;
+	private static final double kHighWheelNonLinearity = 0.55; //above 0, 1 is the most curvy
+	private static final double kLowWheelNonLinearity = 0.4;
 
-	private static final double kHighNegInertiaScalar = 3.0;
+	private static final double kHighNegInertiaScalar = 4.0;
 
 	private static final double kLowNegInertiaThreshold = 0.65;
-	private static final double kLowNegInertiaTurnScalar = 3.0;
+	private static final double kLowNegInertiaTurnScalar = 3.5;
 	private static final double kLowNegInertiaCloseScalar = 4.0;
-	private static final double kLowNegInertiaFarScalar = 4.0;
+	private static final double kLowNegInertiaFarScalar = 5.0;
 
-	private static final double kHighSensitivity = 0.45; //0.4
-	private static final double kLowSensitiity = 0.65; //0.6
+	private static final double kHighSensitivity = 0.4; //0.4
+	private static final double kLowSensitiity = 0.6; //0.6
 
-	private static final double kQuickStopDeadband = 0.2;
+	private static final double kQuickStopDeadband = 0.25;
 	private static final double kQuickStopWeight = 0.1;
 	private static final double kQuickStopScalar = 5.0;
 
@@ -102,7 +102,7 @@ public class TortoDriveHelper {
 						+ alpha * Util.limit(wheel, 1.0) * kQuickStopScalar;
 			}
 			overPower = 1.0;
-			angularPower = wheel * sensitivity;
+			angularPower = wheel * sensitivity; // angularPower = wheel;
 		} else {
 			overPower = 0.0;
 			angularPower = Math.abs(throttle) * wheel * sensitivity - mQuickStopAccumlator;
@@ -116,8 +116,8 @@ public class TortoDriveHelper {
 		}
 
 		rightPwm = leftPwm = linearPower;
-		leftPwm -= angularPower; //Peteman's note here: reverse turn here!
-		rightPwm += angularPower;
+		leftPwm += angularPower; //Peteman's note here: reverse turn here!
+		rightPwm -= angularPower;
 
 		if (leftPwm > 1.0) {
 			rightPwm -= overPower * (leftPwm - 1.0);

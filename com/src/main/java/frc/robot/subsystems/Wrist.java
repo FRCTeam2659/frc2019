@@ -5,13 +5,10 @@ import com.ctre.phoenix.motorcontrol.DemandType;
 import com.ctre.phoenix.motorcontrol.FeedbackDevice;
 import com.ctre.phoenix.motorcontrol.NeutralMode;
 import com.ctre.phoenix.motorcontrol.StatusFrameEnhanced;
-import com.ctre.phoenix.motorcontrol.StickyFaults;
 import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.lib.drivers.TalonSRXFactory;
-import frc.lib.util.ReflectingCSVWriter;
 import frc.lib.util.Util;
 import frc.robot.Constants;
 import frc.robot.loops.ILooper;
@@ -21,7 +18,7 @@ public class Wrist extends Subsystem {
         private static final int kMagicMotionSlot = 0;
         private static final int kPositionControlSlot = 1;
 
-        private final int kHomeAngle = 50;
+        private int kHomeAngle = 35+10; //35
         private boolean mHasBeenZeroed = false;
     
         private static Wrist mInstance;
@@ -30,7 +27,6 @@ public class Wrist extends Subsystem {
         private double mZeroPosition = Double.NaN;
         private SystemState mSystemState = SystemState.HOMING;
         private SystemState mDesiredState = SystemState.MOTION_PROFILING;
-        private ReflectingCSVWriter<PeriodicIO> mCSVWriter = null;
     
         private Wrist() {
             mMaster = TalonSRXFactory.createDefaultTalon(Constants.kWristMasterId);
@@ -53,7 +49,7 @@ public class Wrist extends Subsystem {
             mMaster.config_kI(kPositionControlSlot, Constants.kWristKi, Constants.kLongCANTimeoutMs);
             mMaster.config_kD(kPositionControlSlot, Constants.kWristJogKd, Constants.kLongCANTimeoutMs);
             mMaster.configAllowableClosedloopError(kPositionControlSlot, Constants.kWristDeadband, Constants.kLongCANTimeoutMs);
-            mMaster.configContinuousCurrentLimit(20, Constants.kLongCANTimeoutMs);
+            mMaster.configContinuousCurrentLimit(30, Constants.kLongCANTimeoutMs);
             mMaster.configPeakCurrentLimit(40, Constants.kLongCANTimeoutMs);
             mMaster.configPeakCurrentDuration(200, Constants.kLongCANTimeoutMs);
             mMaster.configClosedloopRamp(Constants.kWristRampRate, Constants.kLongCANTimeoutMs);
@@ -84,7 +80,7 @@ public class Wrist extends Subsystem {
             SmartDashboard.putNumber("Wrist Angle", getAngle());
             SmartDashboard.putNumber("Wrist Position", getPosition());
             SmartDashboard.putNumber("Wrist Ticks", mPeriodicIO.position_ticks);
-            SmartDashboard.putNumber("Wrist periodic demand", mPeriodicIO.demand);
+            /*SmartDashboard.putNumber("Wrist periodic demand", mPeriodicIO.demand);
     
             SmartDashboard.putNumber("Wrist RPM", getRPM());
             SmartDashboard.putNumber("Wrist Power %", mPeriodicIO.output_percent);
@@ -93,11 +89,7 @@ public class Wrist extends Subsystem {
     
             if (mCSVWriter != null) {
                 mCSVWriter.write();
-            }
-        }
-    
-        public synchronized void setRampRate(double rampRate) {
-            mMaster.configClosedloopRamp(rampRate, 0);
+            }*/
         }
     
         @Override
@@ -156,7 +148,6 @@ public class Wrist extends Subsystem {
     
                 @Override
                 public void onStop(double timestamp) {
-                    stopLogging();
                 }
             });
         }
@@ -172,6 +163,10 @@ public class Wrist extends Subsystem {
                 return true;
             }*/
             return false;
+        }
+
+        public synchronized void setHomeAngle(int relativeAngle) {
+            kHomeAngle += relativeAngle;
         }
     
         /**
@@ -261,15 +256,6 @@ public class Wrist extends Subsystem {
     
         @Override
         public synchronized void readPeriodicInputs() {
-            if (mMaster.hasResetOccurred()) {
-                DriverStation.reportError("Wrist Talon Reset! ", false);
-            }
-            StickyFaults faults = new StickyFaults();
-            mMaster.getStickyFaults(faults);
-            if (faults.hasAnyFault()) {
-                DriverStation.reportError("Wrist Talon Fault! " + faults.toString(), false);
-                mMaster.clearStickyFaults(0);
-            }
             if (mMaster.getControlMode() == ControlMode.MotionMagic) {
                 mPeriodicIO.active_trajectory_position = mMaster.getActiveTrajectoryPosition();
                 int newVel = mMaster.getActiveTrajectoryVelocity();
@@ -289,8 +275,8 @@ public class Wrist extends Subsystem {
                 mPeriodicIO.active_trajectory_velocity = 0;
                 mPeriodicIO.active_trajectory_acceleration_rad_per_s2 = 0.0;
             }
-            mPeriodicIO.output_voltage = mMaster.getMotorOutputVoltage();
-            mPeriodicIO.output_percent = mMaster.getMotorOutputPercent();
+            //mPeriodicIO.output_voltage = mMaster.getMotorOutputVoltage();
+            //mPeriodicIO.output_percent = mMaster.getMotorOutputPercent();
             mPeriodicIO.position_ticks = mMaster.getSelectedSensorPosition(0);
             mPeriodicIO.velocity_ticks_per_100ms = mMaster.getSelectedSensorVelocity(0);
     
@@ -305,9 +291,6 @@ public class Wrist extends Subsystem {
                 } else {
                     mPeriodicIO.feedforward = 0.0;
                 }
-            }
-            if (mCSVWriter != null) {
-                mCSVWriter.add(mPeriodicIO);
             }
         }
     
@@ -327,18 +310,7 @@ public class Wrist extends Subsystem {
                 return true;
         }
     
-        public synchronized void startLogging() {
-            if (mCSVWriter == null) {
-                mCSVWriter = new ReflectingCSVWriter<>("/home/lvuser/WRIST-LOGS.csv", PeriodicIO.class);
-            }
-        }
-    
-        public synchronized void stopLogging() {
-            if (mCSVWriter != null) {
-                mCSVWriter.flush();
-                mCSVWriter = null;
-            }
-        }
+
     
         public enum SystemState {
             HOMING,

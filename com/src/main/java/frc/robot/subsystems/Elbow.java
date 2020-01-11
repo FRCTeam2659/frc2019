@@ -7,10 +7,8 @@ import com.ctre.phoenix.motorcontrol.NeutralMode;
 import com.ctre.phoenix.motorcontrol.StatusFrameEnhanced;
 import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.lib.drivers.TalonSRXFactory;
-import frc.lib.util.ReflectingCSVWriter;
 import frc.lib.util.Util;
 import frc.robot.Constants;
 import frc.robot.loops.ILooper;
@@ -18,9 +16,9 @@ import frc.robot.loops.Loop;
 
 public class Elbow extends Subsystem {
         private static final int kMagicMotionSlot = 0;
-        private static final int kPositionControlSlot = 1;
+        private static final int kClimbControlSlot = 1;
 
-        private final int kHomeAngle = 130;
+        private int kHomeAngle = 145+8; //145
         private boolean mHasBeenZeroed = false;
     
         private static Elbow mInstance;
@@ -29,7 +27,6 @@ public class Elbow extends Subsystem {
         private double mZeroPosition = Double.NaN;
         private SystemState mSystemState = SystemState.HOMING;
         private SystemState mDesiredState = SystemState.MOTION_PROFILING;
-        private ReflectingCSVWriter<PeriodicIO> mCSVWriter = null;
     
         private Elbow() {
             mMaster = TalonSRXFactory.createDefaultTalon(Constants.kElbowMasterId);
@@ -48,16 +45,16 @@ public class Elbow extends Subsystem {
             mMaster.configMotionCruiseVelocity(Constants.kElbowCruiseVelocity, Constants.kLongCANTimeoutMs);
 
             // Configure position PID
-            mMaster.config_kP(kPositionControlSlot, Constants.kElbowJogKp, Constants.kLongCANTimeoutMs);
-            mMaster.config_kI(kPositionControlSlot, Constants.kElbowKi, Constants.kLongCANTimeoutMs);
-            mMaster.config_kD(kPositionControlSlot, Constants.kElbowJogKd, Constants.kLongCANTimeoutMs);
-            mMaster.configAllowableClosedloopError(kPositionControlSlot, Constants.kWristDeadband, Constants.kLongCANTimeoutMs);
+            mMaster.config_kP(kClimbControlSlot, Constants.kElbowClimbKp, Constants.kLongCANTimeoutMs);
+            mMaster.config_kI(kClimbControlSlot, Constants.kElbowKi, Constants.kLongCANTimeoutMs);
+            mMaster.config_kD(kClimbControlSlot, Constants.kElbowClimbKd, Constants.kLongCANTimeoutMs);
+            mMaster.configAllowableClosedloopError(kClimbControlSlot, Constants.kWristDeadband, Constants.kLongCANTimeoutMs);
 
-            mMaster.configContinuousCurrentLimit(20, Constants.kLongCANTimeoutMs);
+            mMaster.configContinuousCurrentLimit(30, Constants.kLongCANTimeoutMs);
             mMaster.configPeakCurrentLimit(40, Constants.kLongCANTimeoutMs);
-            mMaster.configPeakCurrentDuration(200, Constants.kLongCANTimeoutMs);
-            mMaster.configClosedloopRamp(Constants.kWristRampRate, Constants.kLongCANTimeoutMs);
-            mMaster.configPeakOutputForward(0.5, 0);
+            mMaster.configPeakCurrentDuration(500, Constants.kLongCANTimeoutMs);
+            mMaster.configClosedloopRamp(Constants.kElbowRampRate, Constants.kLongCANTimeoutMs);
+            mMaster.configPeakOutputForward(1.0, 0);
             mMaster.configPeakOutputReverse(-1.0, 0);
             mMaster.enableCurrentLimit(true);
     
@@ -84,6 +81,7 @@ public class Elbow extends Subsystem {
         public synchronized void outputTelemetry() {
             SmartDashboard.putNumber("Elbow Angle", getAngle());
             SmartDashboard.putNumber("Elbow Position", getPosition());
+            /*SmartDashboard.putNumber("Elbow Velocity", mPeriodicIO.velocity_ticks_per_100ms);
             SmartDashboard.putNumber("Elbow Ticks", mPeriodicIO.position_ticks);
             SmartDashboard.putNumber("Elbow periodic demand", mPeriodicIO.demand);
     
@@ -93,11 +91,7 @@ public class Elbow extends Subsystem {
     
             if (mCSVWriter != null) {
                 mCSVWriter.write();
-            }
-        }
-    
-        public synchronized void setRampRate(double rampRate) {
-            mMaster.configClosedloopRamp(rampRate, 0);
+            }*/
         }
     
         @Override
@@ -155,7 +149,6 @@ public class Elbow extends Subsystem {
     
                 @Override
                 public void onStop(double timestamp) {
-                    stopLogging();
                 }
             });
         }
@@ -171,6 +164,10 @@ public class Elbow extends Subsystem {
         public void setClosedLoop(int position) {
             mPeriodicIO.demand = (position);
             mDesiredState = SystemState.MOTION_PROFILING;
+        }
+
+        public synchronized void setHomeAngle(int relativeAngle) {
+            kHomeAngle += relativeAngle;
         }
     
         /**
@@ -193,12 +190,12 @@ public class Elbow extends Subsystem {
             mPeriodicIO.demand = (degreesToSensorUnits(angleFromHome));
             if (mDesiredState != SystemState.POSITION_PID) {
                 mDesiredState = SystemState.POSITION_PID;
-                mMaster.selectProfileSlot(kPositionControlSlot, 0);
+                mMaster.selectProfileSlot(kClimbControlSlot, 0);
             }
         }
 
-        public synchronized void setJogElbow(double relativeAngle) {
-            setPositionPIDAngle(getAngle() + relativeAngle);
+        public synchronized void setClimbingAngle(double angle) {
+            setPositionPIDAngle(angle);
         }
     
         /**
@@ -243,26 +240,18 @@ public class Elbow extends Subsystem {
         }
     
         private double sensorUnitsToDegrees(double units) {
-            return units / 4096.0 * 360.0 / 2.735; //2.735
+            return units / 4096.0 * 360.0 / 2.7351; //2.735 pbot estimate: 3.0, theoretic: 3.077 | cbot: 2.735
         }
     
         private double degreesToSensorUnits(double degrees) {
-            return degrees * 4096.0 / 360.0 * 2.735; //3.077
+            return degrees * 4096.0 / 360.0 * 2.7351; //3.2323233 3.077
         }
     
         @Override
         public synchronized void readPeriodicInputs() {
-            if (mMaster.hasResetOccurred()) {
-                DriverStation.reportError("Wrist Talon Reset! ", false);
-            }
             if (mMaster.getControlMode() == ControlMode.MotionMagic) {
                 mPeriodicIO.active_trajectory_position = mMaster.getActiveTrajectoryPosition();
     
-                /*if (mPeriodicIO.active_trajectory_position < kReverseSoftLimit) {
-                    DriverStation.reportError("Active trajectory past reverse soft limit!", false);
-                } else if (mPeriodicIO.active_trajectory_position > kForwardSoftLimit) {
-                    DriverStation.reportError("Active trajectory past forward soft limit!", false);
-                }*/
                 final int newVel = mMaster.getActiveTrajectoryVelocity();
                 // TODO check sign of accel
                 if (Util.epsilonEquals(newVel, Constants.kWristCruiseVelocity, 5) ||
@@ -281,29 +270,23 @@ public class Elbow extends Subsystem {
                 mPeriodicIO.active_trajectory_velocity = 0;
                 mPeriodicIO.active_trajectory_acceleration_rad_per_s2 = 0.0;
             }
-            mPeriodicIO.output_voltage = mMaster.getMotorOutputVoltage();
-            mPeriodicIO.output_percent = mMaster.getMotorOutputPercent();
+            //mPeriodicIO.output_voltage = mMaster.getMotorOutputVoltage();
+            //mPeriodicIO.output_percent = mMaster.getMotorOutputPercent();
             mPeriodicIO.position_ticks = mMaster.getSelectedSensorPosition(0);
             mPeriodicIO.velocity_ticks_per_100ms = mMaster.getSelectedSensorVelocity(0);
     
-            /*if (getAngle() > Constants.kWristEpsilon ||
-                    sensorUnitsToDegrees(mPeriodicIO.active_trajectory_position) > Constants.kWristEpsilon) {
-                double wristGravityComponent = Math.cos(Math.toRadians(getAngle())) * (mIntake.hasCube() ? Constants
-                        .kWristKfMultiplierWithCube : Constants.kWristKfMultiplierWithoutCube);
-                double elevatorAccelerationComponent = mElevator.getActiveTrajectoryAccelG() * Constants
-                        .kWristElevatorAccelerationMultiplier;
-                double wristAccelerationComponent = mPeriodicIO.active_trajectory_acceleration_rad_per_s2 *
-                        (mIntake.hasCube() ? Constants.kWristKaWithCube : Constants.kWristKaWithoutCube);
-                mPeriodicIO.feedforward = (elevatorAccelerationComponent) * wristGravityComponent + wristAccelerationComponent;
+            if (getAngle() > Constants.kWristEpsilon || sensorUnitsToDegrees(mPeriodicIO.active_trajectory_position) > Constants.kWristEpsilon) {
+                double wristGravityComponent = Math.sin(Math.toRadians(getAngle())) * Constants.kElbowKfMultiplier;
+                //double elevatorAccelerationComponent = mElevator.getActiveTrajectoryAccelG() * Constants
+                      //  .kWristElevatorAccelerationMultiplier;
+                double wristAccelerationComponent = mPeriodicIO.active_trajectory_acceleration_rad_per_s2 * Constants.kElbowKa;
+                mPeriodicIO.feedforward = wristGravityComponent + wristAccelerationComponent; //(elevatorAccelerationComponent) * 
             } else {
                 if (getSetpoint() < Util.kEpsilon) {
                     mPeriodicIO.feedforward = -0.1;
                 } else {
                     mPeriodicIO.feedforward = 0.0;
                 }
-            }*/
-            if (mCSVWriter != null) {
-                mCSVWriter.add(mPeriodicIO);
             }
         }
     
@@ -323,19 +306,6 @@ public class Elbow extends Subsystem {
                 return true;
         }
     
-        public synchronized void startLogging() {
-            if (mCSVWriter == null) {
-                mCSVWriter = new ReflectingCSVWriter<>("/home/lvuser/WRIST-LOGS.csv", PeriodicIO.class);
-            }
-        }
-    
-        public synchronized void stopLogging() {
-            if (mCSVWriter != null) {
-                mCSVWriter.flush();
-                mCSVWriter = null;
-            }
-        }
-    
         public enum SystemState {
             HOMING,
             MOTION_PROFILING,
@@ -350,10 +320,7 @@ public class Elbow extends Subsystem {
             public int active_trajectory_position;
             public int active_trajectory_velocity;
             public double active_trajectory_acceleration_rad_per_s2;
-            public double output_percent;
-            public double output_voltage;
             public double feedforward;
-            public boolean limit_switch;
     
             // OUTPUTS
             public double demand;

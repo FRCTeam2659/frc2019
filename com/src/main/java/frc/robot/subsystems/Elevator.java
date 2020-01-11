@@ -6,13 +6,12 @@ import com.ctre.phoenix.motorcontrol.NeutralMode;
 import com.ctre.phoenix.motorcontrol.StatusFrameEnhanced;
 import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 
-import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.lib.drivers.TalonSRXFactory;
 import frc.robot.Constants;
 
 public class Elevator extends Subsystem {
-    public static final double kHomePositionInches = 18.5; //important constant to tune
+    public static final double kHomePositionInches = 22.5; //important constant to tune 22.5
     private static final int kHighGearSlot = 0;
     private static final int kPositionControlSlot = 1;
     private static final double kEncoderTicksPerInch = -768.0;
@@ -50,9 +49,6 @@ public class Elevator extends Subsystem {
         mMaster.enableCurrentLimit(true);
 
         mMaster.selectProfileSlot(0, 0); //motion magic slot
-
-        mMaster.overrideLimitSwitchesEnable(true);
-        mMaster.overrideSoftLimitsEnable(false);
 
         mMaster.enableVoltageCompensation(true);
 
@@ -123,16 +119,16 @@ public class Elevator extends Subsystem {
 
     @Override
     public void outputTelemetry() {
-        SmartDashboard.putNumber("Elevator Output %", mPeriodicIO.output_percent);
-        SmartDashboard.putNumber("Elevator RPM", getRPM());
-        SmartDashboard.putNumber("Elevator Current", mMaster.getOutputCurrent());
-        // SmartDashboard.putNumber("Elevator Error", mMaster.getClosedLoopError(0) / kEncoderTicksPerInch);
+        //SmartDashboard.putNumber("Elevator Output %", mPeriodicIO.output_percent);
+        //SmartDashboard.putNumber("Elevator RPM", getRPM());
+        //SmartDashboard.putNumber("Elevator Current", mMaster.getOutputCurrent());
+        //SmartDashboard.putNumber("Elevator Error", mMaster.getClosedLoopError(0) / kEncoderTicksPerInch);
         SmartDashboard.putNumber("Elevator Height", getInchesOffGround());
-        SmartDashboard.putBoolean("Elevator Limit", mPeriodicIO.limit_switch);
+        //SmartDashboard.putBoolean("Elevator Limit", mPeriodicIO.limit_switch);
         SmartDashboard.putNumber("Elevator Sensor Height", mPeriodicIO.position_ticks);
 
-        SmartDashboard.putNumber("Elevator Last Expected Trajectory", mPeriodicIO.demand);
-        SmartDashboard.putNumber("Elevator Traj Vel", mMaster.getSelectedSensorVelocity(0));
+        //SmartDashboard.putNumber("Elevator Last Expected Trajectory", mPeriodicIO.demand);
+        //SmartDashboard.putNumber("Elevator Traj Vel", mMaster.getSelectedSensorVelocity(0));
     }
 
     @Override
@@ -150,30 +146,25 @@ public class Elevator extends Subsystem {
         return mHasBeenZeroed;
     }
 
-    public synchronized void resetIfAtLimit() {
-        if (mPeriodicIO.limit_switch) {
-            zeroSensors();
-        }
-    }
-
     private void setNeutralMode(NeutralMode neutralMode) {
         mMaster.setNeutralMode(neutralMode);
     }
 
     @Override
     public synchronized void readPeriodicInputs() {
-        final double t = Timer.getFPGATimestamp();
         mPeriodicIO.position_ticks = mMaster.getSelectedSensorPosition(0);
         mPeriodicIO.velocity_ticks_per_100ms = mMaster.getSelectedSensorVelocity(0);
-        mPeriodicIO.output_percent = mMaster.getMotorOutputPercent();
-        mPeriodicIO.limit_switch = mMaster.getSensorCollection().isFwdLimitSwitchClosed();
-        mPeriodicIO.t = t;
+        //mPeriodicIO.output_percent = mMaster.getMotorOutputPercent();
     }
 
     @Override
     public synchronized void writePeriodicOutputs() {
+        /*if (mPeriodicIO.demand > SuperstructureConstants.kElevatorMaxHeight)
+            mPeriodicIO.demand = SuperstructureConstants.kElevatorMaxHeight;
+        if (mPeriodicIO.demand < SuperstructureConstants.kElevatorMinHeight)
+            mPeriodicIO.demand = SuperstructureConstants.kElevatorMinHeight;*/
         if (mElevatorControlState == ElevatorControlState.MOTION_MAGIC) {
-            mMaster.set(ControlMode.MotionMagic, mPeriodicIO.demand);
+            mMaster.set(ControlMode.MotionMagic, mPeriodicIO.demand); //need to add 10% feedforward
         } else if (mElevatorControlState == ElevatorControlState.POSITION_PID) {
             mMaster.set(ControlMode.Position, mPeriodicIO.demand);
         } else {
@@ -196,10 +187,9 @@ public class Elevator extends Subsystem {
         // INPUTS
         public int position_ticks;
         public int velocity_ticks_per_100ms;
-        public double output_percent;
-        public boolean limit_switch;
+        //public double output_percent;
+        //public boolean limit_switch;
         public double feedforward;
-        public double t;
 
         // OUTPUTS
         public double demand;

@@ -1,13 +1,13 @@
 package frc.robot.auto.modes;
 
 import frc.robot.RobotState;
-import frc.robot.auto.AutoConstants;
 import frc.robot.auto.AutoModeBase;
 import frc.robot.auto.AutoModeEndedException;
 import frc.robot.auto.actions.*;
 import frc.robot.paths.TrajectoryGenerator;
 import frc.robot.subsystems.Drive;
 import frc.robot.subsystems.Vision;
+import frc.robot.subsystems.Superstructure.SuperstructureStates;
 import frc.lib.geometry.Pose2d;
 import frc.lib.trajectory.timing.CentripetalAccelerationConstraint;
 import frc.lib.util.DriveSignal;
@@ -27,7 +27,7 @@ public class Auteleop extends AutoModeBase {
         List<Pose2d> waypoints = new ArrayList<>();
         waypoints.add(RobotState.getInstance().getLatestFieldToVehicle().getValue());
         waypoints.add(mVision.getCoordinate());
-        mAuteleopTrajectory = new DriveTrajectory(mTrajectoryGenerator.generateTrajectory(false, waypoints, Arrays.asList(new CentripetalAccelerationConstraint(100.0)),120.0, 100.0, 9.0));
+        mAuteleopTrajectory = new DriveTrajectory(mTrajectoryGenerator.generateTrajectory(false, waypoints, Arrays.asList(new CentripetalAccelerationConstraint(100.0)),60.0, 100.0, 9.0), true);
     }
 
     @Override
@@ -44,12 +44,12 @@ public class Auteleop extends AutoModeBase {
                         mAuteleopTrajectory,
                         new SeriesAction(
                                 Arrays.asList(
-                                        new WaitAction(1.0) //wait the total time of travelling - time for arm to be in position
-                                        //raise arm to desire position
+                                        new SetSuperstructure(SuperstructureStates.LOW_POSITION),
+                                        new TogglePeg(false)
                                 )
                         )
                 )
         ));
-        runAction(new WaitAction(AutoConstants.kWaitForCubeTime)); //score when the path is finished
+        //score when the path is finished
     }
 }

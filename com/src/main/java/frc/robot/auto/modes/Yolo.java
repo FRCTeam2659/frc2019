@@ -14,20 +14,20 @@ public class Yolo extends AutoModeBase {
 
     private static final TrajectoryGenerator mTrajectoryGenerator = TrajectoryGenerator.getInstance();
     private final boolean mStartedLeft;
-    private DriveTrajectory mYolo1, mYolo2, mYolo3, mYolo4;
-    private final double mYolo1WaitTime, mYolo3WaitTime, mYolo4WaitTime;
+    private DriveTrajectory mYolo1, mYolo2, mYolo3, mYolo4, mYolo5;
+    private final double mYolo1WaitTime, mYolo4WaitTime;
 
     public Yolo(boolean robotStartedOnLeft) {
         mStartedLeft = robotStartedOnLeft;
-        mYolo1 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().sideStartToNearMiddleShip.get(mStartedLeft), true);
-        mYolo2 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().nearMiddleShipToBuffer.get(mStartedLeft));
-        mYolo3 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().bufferToCargo1.get(mStartedLeft));
-        mYolo4 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().cargo1ToSlot1.get(mStartedLeft));
-
-        mYolo1WaitTime = mTrajectoryGenerator.getTrajectorySet().sideStartToNearMiddleShip.get(mStartedLeft).getLastState().t() - 1.5;
-        mYolo3WaitTime = mTrajectoryGenerator.getTrajectorySet().bufferToCargo1.get(mStartedLeft).getLastState().t() - 2.0;
-        mYolo4WaitTime = mTrajectoryGenerator.getTrajectorySet().cargo1ToSlot1.get(mStartedLeft).getLastState().t() - 1.5;
-    }
+        mYolo1 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().sideStartToFrontRocket.get(mStartedLeft), true);
+        mYolo2 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().frontRocketToBuffer.get(mStartedLeft));
+        mYolo3 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().fronRocketBufferToLoading.get(mStartedLeft));
+        mYolo4 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().hatch2ToRocketBuffer.get(mStartedLeft));
+        mYolo5 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().bufferToBackRocket.get(mStartedLeft));
+        
+        mYolo1WaitTime = mTrajectoryGenerator.getTrajectorySet().sideStartToFrontRocket.get(mStartedLeft).getLastState().t() - 1.6;
+        mYolo4WaitTime = mTrajectoryGenerator.getTrajectorySet().hatch2ToRocketBuffer.get(mStartedLeft).getLastState().t() - 1.5;
+}
 
     @Override
     public void done() {
@@ -36,7 +36,7 @@ public class Yolo extends AutoModeBase {
 
     @Override
     protected void routine() throws AutoModeEndedException {
-        // 1 hatch + 1 cargo auto
+        // two hatch backside rocket auto
         System.out.println("Running Yolo Program");
         // Start drving path1: scoring the first hatch
         runAction(new ParallelAction(
@@ -45,8 +45,8 @@ public class Yolo extends AutoModeBase {
                         new SeriesAction(
                                 Arrays.asList(
                                         new SetSuperstructure(false),
-                                        new WaitAction(1.5),
-                                        new SetSuperstructure(SuperstructureStates.LOW_POSITION),
+                                        new WaitAction(1.6), // Don't change this #
+                                        new SetSuperstructure(SuperstructureStates.MIDDLE_POSITION),
                                         new WaitAction(mYolo1WaitTime),
                                         new TogglePeg(false)
                                 )
@@ -54,41 +54,31 @@ public class Yolo extends AutoModeBase {
                 )
         ));
 
-        // Starrt driving path2: move to buffer zone
-        runAction(new ParallelAction(
+        // Start driving path2: move to buffer zone
+        runAction(mYolo2);
+
+        // Start driving path3; picking the second hatch
+        runAction(new SeriesAction(
                 Arrays.asList(
-                        mYolo2,
-                        new SeriesAction(
-                                Arrays.asList(
-                                        new SetSuperstructure(true),
-                                        new SetSuperstructure(SuperstructureStates.INTAKE)
-                                )
-                        )
+                        new SetSuperstructure(SuperstructureStates.LOW_POSITION),
+                        mYolo3,
+                        new TogglePeg(true)
                 )
         ));
 
-        // Start driving path3; picking the first cargo
-        runAction(new ParallelAction(
-                Arrays.asList(
-                        mYolo3,
-                        new SeriesAction(
-                                Arrays.asList(
-                                        new WaitAction(mYolo3WaitTime),
-                                        new SetIntaking(true)
-                                )
-                        )
-                )
-        ));
         runAction(new ParallelAction(
                 Arrays.asList(
                         mYolo4,
                         new SeriesAction(
                                 Arrays.asList(
-                                        new SetSuperstructure(SuperstructureStates.SCORE_HIGH_CARGO),
                                         new WaitAction(1.5),
-                                        new SetSuperstructure(SuperstructureStates.BACKWARD),
+                                        //new LLDrive(),
+                                        //new DriveTo(20,-20),
+                                        //new DriveTo(20,20)
+                                        new SetSuperstructure(SuperstructureStates.MIDDLE_POSITION),
                                         new WaitAction(mYolo4WaitTime),
-                                        new ShootCargo(false)
+                                        mYolo5,
+                                        new TogglePeg(true)
                                 )
                         )
                 )

@@ -1,13 +1,10 @@
 package frc.robot.subsystems;
 
 import edu.wpi.first.networktables.NetworkTable;
-import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.lib.geometry.Pose2d;
 import frc.lib.geometry.Rotation2d;
-import frc.robot.Constants;
-import frc.robot.RobotState;
 import frc.robot.loops.ILooper;
 import frc.robot.loops.Loop;
 
@@ -24,6 +21,15 @@ import frc.robot.loops.Loop;
 public class Vision extends Subsystem {
     private static Vision mInstance;
 
+    private boolean currentVisionMode = false;
+    private boolean m_LimelightHasValidTarget = false; 
+    private double[] camtran;
+    private double tv;
+    private double tx;
+    private double ty;
+    private double tz;
+    private double ta;
+
     public synchronized static Vision getInstance() {
         if (mInstance == null) {
             mInstance = new Vision();
@@ -31,63 +37,53 @@ public class Vision extends Subsystem {
         return mInstance;
     }
 
-    public enum ScaleHeight {
-        LOW,
-        NEUTRAL,
-        HIGH
-    }
-
     private Vision() {
     }
 
-    private double dx;
-    private double dy;
-    private double dtheta;
-    private double dpx;
-    private double realDx;
-    private double realDy;
-    private double realDz;
-    NetworkTableInstance inst = NetworkTableInstance.getDefault();
-    NetworkTable table = inst.getTable("datatable");
-
+    
     /**
      * @return true if the robot is receiving data from the scale tracker
      */
-    public synchronized boolean isConnected() {
+    public boolean isConnected() {
         return true;
     }
 
-    public synchronized Pose2d getCoordinate() {
-        NetworkTableEntry xEntry = table.getEntry("centerX");
-        NetworkTableEntry targetWidth = table.getEntry("targetWidth");
-
-        double gyroAngle = Drive.getInstance().getHeading().getDegrees();
-        double centerX = xEntry.getDouble(0);
-        dpx = Constants.kCenterScreenWidth - centerX;
-        dtheta = Math.atan((centerX - Constants.kCenterScreenWidth)/Constants.H_FOCAL_LENGTH);
-        dx = dpx * Constants.kVisionTapeWidth/targetWidth.getDouble(0);
-        if (centerX > Constants.kCenterScreenWidth)
-            gyroAngle = -gyroAngle;
-        realDz = Math.sin(Math.toRadians(90+gyroAngle))*-dx/Math.sin(Math.abs(dtheta)) * Math.cos(Math.toRadians(gyroAngle));
-        SmartDashboard.putNumber("thetaGplus90", 90+gyroAngle);
-        //dy = dx / Math.tan(dtheta);
-        dtheta = -dtheta;
-        realDx = realDz * Math.sin(Math.toRadians(Math.toDegrees(dtheta)+gyroAngle));
-        realDy = realDz * Math.cos(Math.toRadians(Math.toDegrees(dtheta)+gyroAngle));
-        //Pose2d kSideStartPose = new Pose2d(Math.abs(dy)-13, dx, Drive.getInstance().getHeading()); // 13 camera offset Rotation2d.fromDegrees(dtheta)
-        Pose2d currentPose = RobotState.getInstance().getLatestFieldToVehicle().getValue();
-        Pose2d targetPose;
-        //if (gyroAngle < 180 && gyroAngle > 0)
-            targetPose = new Pose2d(Math.abs(realDy + currentPose.getTranslation().y())-13*Math.sin(Math.toRadians(gyroAngle)), realDx + currentPose.getTranslation().x() - 13*Math.cos(Math.toRadians(gyroAngle)), Rotation2d.fromDegrees(0.0));
-        //else
-            //targetPose = new Pose2d(realDx + currentPose.getTranslation().x(), realDy + currentPose.getTranslation().y(), Rotation2d.fromDegrees(-90.0));
+    public Pose2d getCoordinate() {
+        Pose2d targetPose = new Pose2d(-camtran[2] - 20, camtran[0] - 9, Rotation2d.fromDegrees(-camtran[4]));;
         return targetPose;
     }
 
-    public synchronized double getDeltaX() {
-        return dx;
+    public void changeCameraMode(boolean visionMode) {
+        if (currentVisionMode != visionMode) {
+            if (visionMode) {
+                NetworkTableInstance.getDefault().getTable("limelight").getEntry("ledMode").setNumber(3);
+                NetworkTableInstance.getDefault().getTable("limelight").getEntry("camMode").setNumber(0);
+                currentVisionMode = true;
+            } else {
+                NetworkTableInstance.getDefault().getTable("limelight").getEntry("ledMode").setNumber(1);
+                NetworkTableInstance.getDefault().getTable("limelight").getEntry("camMode").setNumber(1);
+                currentVisionMode = false;
+            }
+        }
+
     }
 
+    public boolean isDataValid()
+    {
+        tv = NetworkTableInstance.getDefault().getTable("limelight").getEntry("tv").getDouble(0);
+        //tx = NetworkTableInstance.getDefault().getTable("limelight").getEntry("X").getDouble(0);
+        //ty = NetworkTableInstance.getDefault().getTable("limelight").getEntry("Y").getDouble(0);
+        //tz = NetworkTableInstance.getDefault().getTable("limelight").getEntry("Z").getDouble(0);
+        //ta = NetworkTableInstance.getDefault().getTable("limelight").getEntry("ta").getDouble(0);
+        //camtran = NetworkTableInstance.getDefault().getTable("limelight").getEntry("camtran").getDoubleArray(camtran);
+
+        if (tv < 1.0) {
+          m_LimelightHasValidTarget = false;
+          return false;
+        }
+        m_LimelightHasValidTarget = true;
+        return true;
+    }
 
     @Override
     public boolean checkSystem() {
@@ -96,14 +92,12 @@ public class Vision extends Subsystem {
 
     @Override
     public void outputTelemetry() {
+        isDataValid();
         SmartDashboard.putBoolean("Connected to Vision", isConnected());
-        SmartDashboard.putNumber("X", dx);
-        SmartDashboard.putNumber("Y", dy);
-        SmartDashboard.putNumber("realDX", realDx);
-        SmartDashboard.putNumber("realDY", realDy);
-        SmartDashboard.putNumber("realDZ", realDz);
-        SmartDashboard.putNumber("Theta", dtheta);
-        SmartDashboard.putNumber("dpx", dpx);
+        //SmartDashboard.putNumber("X", camtran[0]);
+        //SmartDashboard.putNumber("Y", camtran[1]);
+        //SmartDashboard.putNumber("Z", camtran[2]);
+        //SmartDashboard.putNumber("Theta", camtran[4]);
     }
 
     @Override
@@ -119,16 +113,6 @@ public class Vision extends Subsystem {
 
             @Override
             public void onLoop(double timestamp) {
-                /*synchronized (Vision.this) {
-                    mAngle = SmartDashboard.getNumber("scaleAngle", Double.NaN);
-                    mTip = SmartDashboard.getNumber("scaleTip", Double.NaN);
-                    mError = SmartDashboard.getBoolean("scaleError", true);
-                    double heartbeat = SmartDashboard.getNumber("scaleHeartbeat", -2);
-                    if (heartbeat > mLastHeartbeatValue) {
-                        mLastHeartbeatValue = heartbeat;
-                        mLastHeartbeatTime = timestamp;
-                    }
-                }*/
             }
 
             @Override

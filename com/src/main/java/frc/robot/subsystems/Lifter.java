@@ -1,40 +1,45 @@
 package frc.robot.subsystems;
 
+import edu.wpi.first.wpilibj.PWMSpeedController;
+import edu.wpi.first.wpilibj.VictorSP;
+import frc.robot.Constants;
+
 public class Lifter extends Subsystem {
         private static Lifter mInstance = null;
-        private boolean mDeployed;
-
+        private final PWMSpeedController mMaster, mSlave;
         private Lifter() {
-
-        // Start the forklift in the retracted position.  Set true to force a state change.
-        mDeployed = true;
-        retract();
+                mMaster = new VictorSP(Constants.kLifterMasterId);
+                mMaster.setInverted(true);
+                mSlave = new VictorSP(Constants.kLifterSlaveId);
+                mSlave.setInverted(true);
         }
 
         public synchronized static Lifter getInstance() {
-        if (mInstance == null) {
-                mInstance = new Lifter();
-        }
-        return mInstance;
-        }
-
-        public synchronized void deploy() {
-        // Try to avoid hitting CAN/JNI wrapper.
-        if (!mDeployed) {
-                mDeployed = true;
-        }
+                if (mInstance == null) {
+                        mInstance = new Lifter();
+                }
+                return mInstance;
         }
 
-        public synchronized void retract() {
-        // Try to avoid hitting CAN/JNI wrapper.
-        if (mDeployed) {
-                mDeployed = false;
+        public synchronized void setOpenLoop(double power) {
+                mMaster.set(power);
+                mSlave.set(power);
+                double elevatorHeight = Drive.getInstance().getRoll() + 42 - Elevator.getInstance().getInchesOffGround();
         }
+
+        public synchronized void liftUp() {
+                mMaster.set(0.75);
+                mSlave.set(0.75);
+        }
+
+        public synchronized void goDown() {
+                mMaster.set(-0.6);
+                mSlave.set(-0.6);
         }
 
         @Override
         public boolean checkSystem() {
-        return true;
+                return true;
         }
 
         @Override
@@ -43,6 +48,8 @@ public class Lifter extends Subsystem {
 
         @Override
         public void stop() {
+                mMaster.set(0);
+                mSlave.set(0);
         }
 
         @Override

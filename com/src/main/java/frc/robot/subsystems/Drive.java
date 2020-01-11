@@ -10,26 +10,22 @@ import frc.robot.Constants;
 import frc.robot.RobotState;
 import frc.robot.loops.ILooper;
 import frc.robot.loops.Loop;
-import frc.robot.paths.TrajectoryGenerator;
 import frc.robot.planners.DriveMotionPlanner;
+import frc.robot.subsystems.Superstructure.SuperstructureStates;
 import frc.lib.drivers.TalonSRXFactory;
 import frc.lib.geometry.Pose2d;
 import frc.lib.geometry.Pose2dWithCurvature;
 import frc.lib.geometry.Rotation2d;
-import frc.lib.trajectory.TimedView;
 import frc.lib.trajectory.TrajectoryIterator;
-import frc.lib.trajectory.timing.CentripetalAccelerationConstraint;
 import frc.lib.trajectory.timing.TimedState;
 import frc.lib.util.DriveSignal;
+import frc.lib.util.PIDConstants;
+import frc.lib.util.PIDWrapper;
 import frc.lib.util.ReflectingCSVWriter;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Solenoid;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 public class Drive extends Subsystem {
 
@@ -37,9 +33,10 @@ public class Drive extends Subsystem {
     private static final int kPositionControlSlot = 1;
     private static final double DRIVE_ENCODER_PPR = 4096.;
     private static Drive mInstance = new Drive();
+    private Limelight mLimelight = Limelight.getInstance();
+    
     // Hardware
     private final TalonSRX mLeftMaster, mRightMaster, mLeftSlaveA, mRightSlaveA, mLeftSlaveB, mRightSlaveB;
-    private final PigeonIMU mGyro;
     private final Solenoid mShifter;
     // Control states
     private DriveControlState mDriveControlState;
@@ -50,12 +47,18 @@ public class Drive extends Subsystem {
     private boolean mIsBrakeMode;
     private double mLeftDemand;
     private double mRightDemand;
+    private PIDWrapper straightPID, straightPID2;
+	private PIDWrapper turnPID;
+	private PIDWrapper limelightTurnPID;
     private ReflectingCSVWriter<PeriodicIO> mCSVWriter = null;
     private DriveMotionPlanner mMotionPlanner;
-    private TrajectoryGenerator mTrajectoryGenerator;
-    private Vision mVision;
     private Rotation2d mGyroOffset = Rotation2d.identity();
-    private boolean mOverrideTrajectory = false;
+    public boolean mOverrideTrajectory = false;
+    private double[] ypr = new double[3];
+    private double yOutput = 0;
+    private double xOutput = 0;
+    private boolean withinAngle = false;
+    private boolean withinRange = false;
 
     private final Loop mLoop = new Loop() {
         @Override
@@ -132,9 +135,6 @@ public class Drive extends Subsystem {
         mRightSlaveB = TalonSRXFactory.createPermanentSlaveTalon(Constants.kRightDriveSlaveBId,
                 Constants.kRightDriveMasterId);
         mRightSlaveB.setInverted(false);
-        mGyro = new PigeonIMU(mRightSlaveA);
-        mGyro.enterCalibrationMode(CalibrationMode.Temperature, 100);
-        
 
         mShifter = new Solenoid(Constants.kShifterSolenoidId);
 
@@ -142,10 +142,20 @@ public class Drive extends Subsystem {
 
         mPigeon = new PigeonIMU(mRightSlaveA);
         mRightSlaveA.setStatusFramePeriod(StatusFrameEnhanced.Status_11_UartGadgeteer, 10, 10);
-        
+        mPigeon.enterCalibrationMode(CalibrationMode.BootTareGyroAccel);
+
+        straightPID = new PIDWrapper(new PIDConstants(0.07, 0.0, 1.0, 0.5));// 4th eps
+        straightPID.setMinDoneCycles(10);
+        straightPID.setIRange(1);
+        straightPID2 = new PIDWrapper(new PIDConstants(0.035, 0.0, 0.5, 0.5));
+        straightPID2.setMinDoneCycles(10);
+        limelightTurnPID = new PIDWrapper(new PIDConstants(0.04, 0.000, 0.4, 1));
+        limelightTurnPID.setMinDoneCycles(10);
+        limelightTurnPID.setMaxOutput(0.4);
+
         // Force a solenoid message.
-        mIsHighGear = true;
-        setHighGear(false);
+        mIsHighGear = false;
+        setHighGear(true);
 
         setOpenLoop(DriveSignal.NEUTRAL);
 
@@ -164,7 +174,7 @@ public class Drive extends Subsystem {
         return rotations * (Constants.kDriveWheelDiameterInches * Math.PI);
     }
 
-    private static double inchesToRotations(double inches) {
+    private static double inchesToTicks(double inches) {
         return inches / (Constants.kDriveWheelDiameterInches * Math.PI) * 4096;
     }
 
@@ -223,10 +233,10 @@ public class Drive extends Subsystem {
                 setBrakeMode(true);
                 mDriveControlState = DriveControlState.POSITION;
     		}
-    		mLeftDemand = inchesToRotations(left)+mLeftMaster.getSelectedSensorPosition(0);
-    		mRightDemand = inchesToRotations(right)+mRightMaster.getSelectedSensorPosition(0);
-    		mLeftMaster.set(ControlMode.MotionMagic, mLeftDemand);
-    		mRightMaster.set(ControlMode.MotionMagic, mRightDemand);
+    		mLeftDemand = inchesToTicks(left)+mLeftMaster.getSelectedSensorPosition(0);
+    		mRightDemand = inchesToTicks(right)+mRightMaster.getSelectedSensorPosition(0);
+    		mLeftMaster.set(ControlMode.Position, mLeftDemand);
+    		mRightMaster.set(ControlMode.Position, mRightDemand);
     }
     
     public synchronized boolean isDoneWithPosition() {
@@ -234,18 +244,6 @@ public class Drive extends Subsystem {
     			return true;
     		else
     			return false;
-    }
-    
-    public void setAuteleop() {
-        mOverrideTrajectory = false;
-        final TrajectoryIterator<TimedState<Pose2dWithCurvature>> mTrajectory;
-        List<Pose2d> waypoints = new ArrayList<>();
-        waypoints.add(RobotState.getInstance().getLatestFieldToVehicle().getValue());
-        waypoints.add(mVision.getCoordinate());
-        mTrajectory = new TrajectoryIterator<>(new TimedView<>(mTrajectoryGenerator.generateTrajectory(false, waypoints, Arrays.asList(new CentripetalAccelerationConstraint(100.0)),120.0, 100.0, 9.0)));
-        mMotionPlanner.reset(); //dont know if need this or not
-        mMotionPlanner.setTrajectory(mTrajectory);
-        mDriveControlState = DriveControlState.PATH_FOLLOWING;
     }
 
     public synchronized void setTrajectory(TrajectoryIterator<TimedState<Pose2dWithCurvature>> trajectory) {
@@ -264,6 +262,67 @@ public class Drive extends Subsystem {
         return mMotionPlanner.isDone() || mOverrideTrajectory;
     }
 
+    public void driveLimeLightXY(double maxOutput) {
+        if (mLimelight.getLimelightMode()) {
+            straightPID.setMaxOutput(0.5);
+            straightPID.setFinishedRange(0.5);
+            straightPID.setMinDoneCycles(1);
+            straightPID.setDesiredValue(mLimelight.getDesiredTargetArea());
+            driveTurnToAngleWithForwardVelocity(straightPID.calcPID(mLimelight.getTargetArea())); //120 is max velocity
+        } else {
+            straightPID2.setMaxOutput(0.36);
+            straightPID2.setFinishedRange(0.5);
+            straightPID2.setMinDoneCycles(1);
+            straightPID2.setDesiredValue(mLimelight.getDesiredTargetArea());
+            driveTurnToAngleWithForwardVelocity(straightPID2.calcPID(mLimelight.getTargetArea())); //120 is max velocity
+        }
+    }
+    
+	public void driveLimeLightXY() {
+		driveLimeLightXY(1.0);
+	}
+
+	public void driveTurnToAngleWithForwardVelocity(double yOutput) {
+		double angle = getHeadingDegree();
+		double offset = angle % 360;
+		double eps = 1.0;
+		double theta = mLimelight.getTargetX() + angle;
+		double maxTurn = 1;
+		this.yOutput = yOutput;
+		// SmartDashboard.putNumber("Motor Output: ", yOutput);
+
+		// this.turnPID.setMaxOutput(11);
+		this.limelightTurnPID.setFinishedRange(eps);
+		this.limelightTurnPID.setDesiredValue(theta);
+
+		// System.out.println("LIMELIGHT DESIRED ANGLE: " +
+		// this.limelightTurnPID.getDesiredVal());
+		double x = this.limelightTurnPID.calcPID(angle);
+		if (x > maxTurn)
+			x = maxTurn;
+        else if (x < -maxTurn)
+			x = -maxTurn;
+
+		if (Math.abs(getHeadingDegree() - theta) < eps+1)
+			withinAngle = true;
+		else
+            withinAngle = false;
+        if (Math.abs(mLimelight.getDesiredTargetArea()-mLimelight.getTargetArea()) < 0.5)//% area
+			withinRange = true;
+		else
+			withinRange = false;
+		if (Math.abs(getHeadingDegree() - theta) < eps)
+			x = 0;
+        //SmartDashboard.putNumber("Motor XOutput: ", x);
+        setOpenLoop(new DriveSignal(yOutput+x, yOutput-x));
+	}
+
+    public boolean isWithinRange() {
+        return withinRange;
+    }
+    public boolean IsWithinAngle() {
+        return withinAngle;
+    }
     public boolean isHighGear() {
         return mIsHighGear;
     }
@@ -293,8 +352,23 @@ public class Drive extends Subsystem {
         }
     }
 
+    public PIDWrapper getDriveStraightPID() {
+        if (mLimelight.getLimelightMode())
+            return straightPID;
+        else
+            return straightPID2;
+	}
+
     public synchronized Rotation2d getHeading() {
         return mPeriodicIO.gyro_heading;
+    }
+
+    public synchronized double getHeadingDegree() {
+        return mPigeon.getFusedHeading();
+    }
+
+    public synchronized double getRoll() {
+        return ypr[2];
     }
 
     public synchronized void setHeading(Rotation2d heading) {
@@ -314,21 +388,23 @@ public class Drive extends Subsystem {
     @Override
     public void outputTelemetry() {
         SmartDashboard.putNumber("Right Drive Distance", mPeriodicIO.right_distance);
-        SmartDashboard.putNumber("Right Drive Ticks", mPeriodicIO.right_position_ticks);
-        SmartDashboard.putNumber("Left Drive Ticks", mPeriodicIO.left_position_ticks);
+        //SmartDashboard.putNumber("Right Drive Ticks", mPeriodicIO.right_position_ticks);
+        //SmartDashboard.putNumber("Left Drive Ticks", mPeriodicIO.left_position_ticks);
         SmartDashboard.putNumber("Left Drive Distance", mPeriodicIO.left_distance);
-        SmartDashboard.putNumber("Right Linear Velocity", getRightLinearVelocity());
-        SmartDashboard.putNumber("Left Linear Velocity", getLeftLinearVelocity());
+        //SmartDashboard.putNumber("Right Linear Velocity", getRightLinearVelocity());
+        //SmartDashboard.putNumber("Left Linear Velocity", getLeftLinearVelocity());
 
-        SmartDashboard.putNumber("x err", mPeriodicIO.error.getTranslation().x());
+        /*SmartDashboard.putNumber("x err", mPeriodicIO.error.getTranslation().x());
         SmartDashboard.putNumber("y err", mPeriodicIO.error.getTranslation().y());
         SmartDashboard.putNumber("theta err", mPeriodicIO.error.getRotation().getDegrees());
+        mPigeon.getYawPitchRoll(ypr);
+        SmartDashboard.putNumber("Gyro Roll", ypr[2]); // roll is the ting i want*/
         if (getHeading() != null) {
-            SmartDashboard.putNumber("Gyro Heading", getHeading().getDegrees());//
+            SmartDashboard.putNumber("Gyro Heading", mPigeon.getFusedHeading());//getHeading().getDegrees()
         }
-        if (mCSVWriter != null) {
-            mCSVWriter.write();
-        }
+        //if (mCSVWriter != null) {
+           // mCSVWriter.write();
+        //}
     }
 
     public synchronized void resetEncoders() {
@@ -339,6 +415,7 @@ public class Drive extends Subsystem {
 
     @Override
     public void zeroSensors() {
+        mPigeon.setFusedHeading(0);
         setHeading(Rotation2d.identity());
         resetEncoders();
     }
@@ -357,6 +434,10 @@ public class Drive extends Subsystem {
 
     public double getRightEncoderDistance() {
         return rotationsToInches(getRightEncoderRotations());
+    }
+
+    public double getAverageEncoderDistance() {
+        return (getLeftEncoderDistance()+getRightEncoderDistance())/2;
     }
 
     public double getRightVelocityNativeUnits() {
@@ -405,7 +486,7 @@ public class Drive extends Subsystem {
                 mPeriodicIO.left_accel = radiansPerSecondToTicksPer100ms(output.left_accel) / 1000.0;
                 mPeriodicIO.right_accel = radiansPerSecondToTicksPer100ms(output.right_accel) / 1000.0;
             } else {
-                setVelocity(DriveSignal.BRAKE, DriveSignal.BRAKE);
+                //setVelocity(DriveSignal.BRAKE, DriveSignal.BRAKE);
                 mPeriodicIO.left_accel = mPeriodicIO.right_accel = 0.0;
             }
         } else {
@@ -426,15 +507,15 @@ public class Drive extends Subsystem {
         mRightMaster.config_kF(kVelocityControlSlot, Constants.kDriveLowGearVelocityKf, Constants.kLongCANTimeoutMs);
         mRightMaster.config_IntegralZone(kVelocityControlSlot, Constants.kDriveLowGearVelocityIZone, Constants.kLongCANTimeoutMs);
         
-        mLeftMaster.config_kP(kPositionControlSlot, 1.5, Constants.kLongCANTimeoutMs);
+        mLeftMaster.config_kP(kPositionControlSlot, 2.5, Constants.kLongCANTimeoutMs);
         mLeftMaster.config_kI(kPositionControlSlot, 0.0, Constants.kLongCANTimeoutMs);
         mLeftMaster.config_kD(kPositionControlSlot, 6.0, Constants.kLongCANTimeoutMs);
-        mLeftMaster.config_kF(kPositionControlSlot, 0.1, Constants.kLongCANTimeoutMs);
+        mLeftMaster.config_kF(kPositionControlSlot, 0.2, Constants.kLongCANTimeoutMs);
 
-        mRightMaster.config_kP(kPositionControlSlot, 1.5, Constants.kLongCANTimeoutMs);
+        mRightMaster.config_kP(kPositionControlSlot, 2.5, Constants.kLongCANTimeoutMs);
         mRightMaster.config_kI(kPositionControlSlot, 0.0, Constants.kLongCANTimeoutMs);
         mRightMaster.config_kD(kPositionControlSlot, 6.0, Constants.kLongCANTimeoutMs);
-        mRightMaster.config_kF(kPositionControlSlot, 0.1, Constants.kLongCANTimeoutMs);
+        mRightMaster.config_kF(kPositionControlSlot, 0.2, Constants.kLongCANTimeoutMs);
     }
 
     @Override
@@ -463,10 +544,6 @@ public class Drive extends Subsystem {
             mPeriodicIO.right_distance += deltaRightTicks * Constants.kDriveWheelDiameterInches;
         } else {
             mPeriodicIO.right_distance += deltaRightTicks * Constants.kDriveWheelDiameterInches;
-        }
-
-        if (mCSVWriter != null) {
-            mCSVWriter.add(mPeriodicIO);
         }
 
         // System.out.println("control state: " + mDriveControlState + ", left: " + mPeriodicIO.left_demand + ", right: " + mPeriodicIO.right_demand);

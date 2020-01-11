@@ -22,24 +22,29 @@ import frc.robot.subsystems.Superstructure.SuperstructureStates;
 import frc.robot.auto.actions.DriveTo;
 import frc.robot.auto.actions.DriveToVisionTarget;
 import frc.robot.auto.actions.DriveTrajectory;
-import frc.robot.auto.actions.DriveTurnToVisionTarget;
 import frc.robot.auto.actions.OverrideWhenTargetPresents;
 import frc.robot.auto.actions.ParallelAction;
 import frc.robot.auto.actions.SeriesAction;
+import frc.robot.auto.actions.SetOpenLoop;
 import frc.robot.auto.actions.SetSuperstructure;
 import frc.robot.auto.actions.TogglePeg;
 
-public class TestMode extends AutoModeBase {
+public class Middle2HatchRocket extends AutoModeBase {
         private static final TrajectoryGenerator mTrajectoryGenerator = TrajectoryGenerator.getInstance();
         private final boolean mStartedLeft;
+        private double sideCoefficient;
         private DriveTrajectory mYolo0, mYolo1, mYolo2, mYolo3;
     
-        public TestMode(boolean robotStartedOnLeft) {
+        public Middle2HatchRocket(boolean robotStartedOnLeft) {
             mStartedLeft = robotStartedOnLeft;
-            mYolo0 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().side2StartToBuffer.get(mStartedLeft), true);
-            mYolo1 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().bufferToBackRocket.get(mStartedLeft), true);
+            if (robotStartedOnLeft)
+                sideCoefficient = -1;
+            else
+                sideCoefficient = 1;
+            //mYolo0 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().side2StartToBuffer.get(mStartedLeft), true);
+            mYolo1 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().sideStartToFrontRocket.get(mStartedLeft), true);
             //mYolo2 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().backRocketToLoading.get(mStartedLeft));
-            //mYolo3 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().loadingToBackRocket.get(mStartedLeft));
+            mYolo3 = new DriveTrajectory(mTrajectoryGenerator.getTrajectorySet().loadingToBackRocket.get(mStartedLeft));
         }
     
         @Override
@@ -51,17 +56,26 @@ public class TestMode extends AutoModeBase {
         protected void routine() throws AutoModeEndedException {
             // two hatch backside rocket auto
             System.out.println("Running Yolo Program");
-    
-            //runAction(mYolo0);
+                
+            /*runAction(new SeriesAction(
+                Arrays.asList(
+                        mYolo0,
+                        new SetSuperstructure(false),
+                        new SetSuperstructure(SuperstructureStates.MIDDLE_POSITION)
+                )
+            ));*/
             runAction(new ParallelAction(
                     Arrays.asList(
                             mYolo1,
                             new SeriesAction(
-                                    Arrays.asList(
+                                    Arrays.asList(   
                                             new SetSuperstructure(false),
-                                            new WaitAction(1.2), // Don't change this #
-                                            new SetSuperstructure(SuperstructureStates.MIDDLE_POSITION)
-                                            //maybe eject first stage too
+                                            new WaitAction(1.0),
+                                            new SetSuperstructure(SuperstructureStates.MIDDLE_POSITION),
+                                            new WaitAction(1.5),
+                                            new OverrideWhenTargetPresents(3),
+                                            new WaitAction(0.3),
+                                            new TogglePeg(false)
                                     )
                             )
                     )
@@ -69,56 +83,45 @@ public class TestMode extends AutoModeBase {
      
             runAction(new SeriesAction(
                     Arrays.asList(
-                            new TurnToAngle(30, 4, 3),
-                            new DriveToVisionTarget(2),
-                            new TogglePeg(false),
-                            new DriveTo(-7, -7),
-                            new TurnToAngle(-30, 4, 3),
+                            new DriveTo(-40, -40),
+                            new SetSuperstructure(SuperstructureStates.LOW_POSITION),
+                            new TurnToAngle(sideCoefficient*(-175), 5, 3),
+                            new DriveToVisionTarget(5),
                             new SetSuperstructure(SuperstructureStates.LOW_POSITION)
+                            //new WaitAction(0.35),
+                            //new SetOpenLoop(0.4, 0.4),
+                            //new DriveTo(8, 8),
+                            //new TogglePeg(true)
                     )
             ));
-            List<Pose2d> waypoints = new ArrayList<>();
+            /*List<Pose2d> waypoints = new ArrayList<>();
             waypoints.add(RobotState.getInstance().getLatestFieldToVehicle().getValue());
-            waypoints.add(TrajectoryGenerator.kHatchLoadingPose);
+            waypoints.add(TrajectoryGenerator.kBackRocketPose);
             Trajectory<TimedState<Pose2dWithCurvature>> mYolo2Path;
             if (mStartedLeft)
-                    mYolo2Path = TrajectoryUtil.mirrorTimed(mTrajectoryGenerator.generateTrajectory(false, waypoints, Arrays.asList(new CentripetalAccelerationConstraint(100.0)), 100.0, 100.0, 9.0));
+                    mYolo2Path = TrajectoryUtil.mirrorTimed(mTrajectoryGenerator.generateTrajectory(true, waypoints, Arrays.asList(new CentripetalAccelerationConstraint(100.0)), 100.0, 110.0, 9.0));
             else
-                    mYolo2Path = mTrajectoryGenerator.generateTrajectory(false, waypoints, Arrays.asList(new CentripetalAccelerationConstraint(100.0)), 100.0, 100.0, 9.0);
+                    mYolo2Path = mTrajectoryGenerator.generateTrajectory(true, waypoints, Arrays.asList(new CentripetalAccelerationConstraint(100.0)), 100.0, 110.0, 9.0);
             
             mYolo2 = new DriveTrajectory(mYolo2Path);
             runAction(new ParallelAction(
                     Arrays.asList(
-                            mYolo2
-                            /*new SeriesAction(
+                            mYolo2,
+                            new SeriesAction(
                                     Arrays.asList(
-                                            new WaitAction(1.5),
-                                            new OverrideWhenTargetPresents(3), //this include ll drive supposedly
-                                            new TogglePeg(true)
+                                            new WaitAction(0.5),
+                                            new SetSuperstructure(SuperstructureStates.MIDDLE_POSITION)
                                     )
-                            )*/
+                            )
                     )
             ));
-            runAction(new TogglePeg(true));
-            List<Pose2d> waypoints2 = new ArrayList<>();
-            waypoints2.add(RobotState.getInstance().getLatestFieldToVehicle().getValue());
-            waypoints2.add(TrajectoryGenerator.kBackRocketPose);
-            Trajectory<TimedState<Pose2dWithCurvature>> mYolo3Path;
-            if (mStartedLeft)
-                    mYolo3Path = TrajectoryUtil.mirrorTimed(mTrajectoryGenerator.generateTrajectory(true, waypoints2, Arrays.asList(new CentripetalAccelerationConstraint(100.0)), 100.0, 100.0, 9.0));
-            else
-                    mYolo3Path = mTrajectoryGenerator.generateTrajectory(true, waypoints2, Arrays.asList(new CentripetalAccelerationConstraint(100.0)), 100.0, 100.0, 9.0);
-            
-            mYolo3 = new DriveTrajectory(mYolo3Path);
-    
+
             runAction(new SeriesAction(
                     Arrays.asList(
-                            mYolo3,
-                            new TurnToAngle(30, 4, 3),
+                            new TurnToAngle(-150*sideCoefficient, 5, 3),
                             new DriveToVisionTarget(3),
-                            new DriveTo(4, 4),
                             new TogglePeg(false)
                     )
-            ));
+            ));*/
         }
 }
