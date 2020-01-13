@@ -321,21 +321,18 @@ public class Robot extends IterativeRobot {
             double throttle = mDriveStick.getRawAxis(1);
             double turn = mDriveStick.getRawAxis(2);
             if (mDriveStick.getRawButton(4)) {
-                //double elevatorPower = 0.5 - Math.sin(Math.toRadians(mDrive.getRoll() - 5)) * 0.5;
-                //double liftingPower = 0.5 + Math.sin(Math.toRadians(mDrive.getRoll() - 5)) * 0.5;
-                //idk why the elevator is reversed here
-                //mLifter.setOpenLoop(liftingPower);
+                double elevatorBalancingOutput = 0.75 - Math.sin(Math.toRadians(mDrive.getRoll() - 5));
+                double lifterBalancingOutput = 0.8 + Math.sin(Math.toRadians(mDrive.getRoll() - 5));
+
                 if (mElevator.getInchesOffGround() < 20) {
                     mElevator.setOpenLoop(0.05);
                     mLifter.setOpenLoop(0.3);
+                } else {
+                    mElevator.setOpenLoop(elevatorPower - elevatorBalancingOutput);
+                    mLifter.setOpenLoop(liftingPower + lifterBalancingOutput); 
                 }
-                else
-                    mElevator.setOpenLoop(elevatorPower);
-                //mSuperstructure.level2ClimbingPosition();
-                //mLifter.liftUp();
-                mLifter.setOpenLoop(liftingPower);
-                // intake was taken care of below
                 mElbow.setOpenLoop(0.55);
+                // intake is taken care of below
                 engageStop = true;
             } else if (mDriveStick.getRawButton(2)) {
                 mLifter.goDown();
@@ -361,26 +358,7 @@ public class Robot extends IterativeRobot {
                 engageStop = false;
             }
 
-            /*if (mDriveStick.getRawButton(6)) {
-                if (mDriveControlState == DriveControlState.OPEN_LOOP) {
-                    if (!mSuperstructure.getIsCargo())
-                        mSuperstructure.setDesiredState(SuperstructureStates.STOWED);
-                    if (mVision.isDataValid()) {
-                        mAutoModeExecutor.setAutoMode(new Auteleop());
-                        mAutoModeExecutor.start();
-                        mDriveControlState = DriveControlState.AUTELEOP;
-                    }
-                }
-            } else if (mDriveControlState == DriveControlState.OPEN_LOOP || mDriveStick.getRawButton(5)) {
-                if (mDriveControlState == DriveControlState.AUTELEOP) {
-                    mDriveControlState = DriveControlState.OPEN_LOOP;
-                    mAutoModeExecutor.stop();
-                }
-                mDrive.setOpenLoop(mTortoDriveHelper.tortoDrive(-throttle, turn, true, mDrive.isHighGear()));
-            }*/
-
             if (mDriveStick.getRawButton(6)) {
-                //mVision.changeCameraMode(true);
                 if (Limelight.getInstance().getTargetExists())
                     mDrive.driveLimeLightXY();
                 if (mSuperstructure.getState() != SuperstructureStates.MIDDLE_POSITION && !mSuperstructure.getIsCargo()) {
@@ -392,30 +370,16 @@ public class Robot extends IterativeRobot {
                     retract = true;
                 }
                     
-                //Update_Limelight_Tracking(); 
-                /*if (!mSuperstructure.getIsCargo()) {
-                    if (ty < 15 && m_LimelightHasValidTarget)
-                        mSuperstructure.setDesiredState(SuperstructureStates.LOW_POSITION);
-                    else
-                        mSuperstructure.setDesiredState(SuperstructureStates.STOWED);
-                }*/
-                //mDrive.setBrakeMode(true);
-                //mDrive.setOpenLoop(mTortoDriveHelper.tortoDrive(-throttle, m_LimelightSteerCommand, true, mDrive.isHighGear()));
-                
             } else {
                 if (retract && !mSuperstructure.getIsCargo()) {
                     mSuperstructure.setDesiredState(SuperstructureStates.LOW_POSITION);
                     retract = false;
                     autoRetract = false;
                 }
-                //mVision.changeCameraMode(false);
-                //mDrive.setBrakeMode(false);
+ 
                 mDrive.setOpenLoop(mTortoDriveHelper.tortoDrive(-throttle, turn, true, mDrive.isHighGear()));
             }
-            /*if (mDriveStick.getRawButton(6) || mOperatorStick.getRawButton(5) || mOperatorStick.getRawButton(6))
-                mVision.changeCameraMode(true);
-            else
-                mVision.changeCameraMode(false);*/
+
             
             //boolean quickTurn = Math.abs(mDrive.getLinearVelocity()) > 100 ? false : true;
 

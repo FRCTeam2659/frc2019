@@ -276,11 +276,9 @@ public class Elbow extends Subsystem {
             mPeriodicIO.velocity_ticks_per_100ms = mMaster.getSelectedSensorVelocity(0);
     
             if (getAngle() > Constants.kWristEpsilon || sensorUnitsToDegrees(mPeriodicIO.active_trajectory_position) > Constants.kWristEpsilon) {
-                double wristGravityComponent = Math.sin(Math.toRadians(getAngle())) * Constants.kElbowKfMultiplier;
-                //double elevatorAccelerationComponent = mElevator.getActiveTrajectoryAccelG() * Constants
-                      //  .kWristElevatorAccelerationMultiplier;
-                double wristAccelerationComponent = mPeriodicIO.active_trajectory_acceleration_rad_per_s2 * Constants.kElbowKa;
-                mPeriodicIO.feedforward = wristGravityComponent + wristAccelerationComponent; //(elevatorAccelerationComponent) * 
+                double elbowGravityComponent = Math.sin(Math.toRadians(getAngle())) * Constants.kElbowKfMultiplier;
+                double elbowAccelerationComponent = mPeriodicIO.active_trajectory_acceleration_rad_per_s2 * Constants.kElbowKa;
+                mPeriodicIO.feedforward = elbowGravityComponent + elbowAccelerationComponent;
             } else {
                 if (getSetpoint() < Util.kEpsilon) {
                     mPeriodicIO.feedforward = -0.1;

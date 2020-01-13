@@ -281,8 +281,7 @@ public class Wrist extends Subsystem {
             mPeriodicIO.velocity_ticks_per_100ms = mMaster.getSelectedSensorVelocity(0);
     
             if (getAngle() > Constants.kWristEpsilon || sensorUnitsToDegrees(mPeriodicIO.active_trajectory_position) > Constants.kWristEpsilon) {
-                double wristGravityComponent = Math.sin(Math.toRadians(getAngle()-(180-Elbow.getInstance().getAngle()))) * Constants.kWristKfMultiplier;
-                //double elevatorAccelerationComponent = mElevator.getActiveTrajectoryAccelG() * Constants.kWristElevatorAccelerationMultiplier;
+                double wristGravityComponent = Math.sin(Math.toRadians(getAngle() - (180 - Elbow.getInstance().getAngle()))) * Constants.kWristKfMultiplier;
                 double wristAccelerationComponent = mPeriodicIO.active_trajectory_acceleration_rad_per_s2 * Constants.kWristKa;
                 mPeriodicIO.feedforward = wristGravityComponent + wristAccelerationComponent;
             } else {

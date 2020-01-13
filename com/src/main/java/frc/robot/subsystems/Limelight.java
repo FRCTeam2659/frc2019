@@ -38,10 +38,6 @@ public class Limelight extends Subsystem {
 
             @Override
             public void onLoop(double timestamp) {
-                /*if (mainCameraAsVision && Superstructure.getInstance().getState() == SuperstructureStates.MIDDLE_POSITION)
-                    useSecondaryCameraAsVision();
-                else if (!mainCameraAsVision)
-                    useMainCameraAsVision();*/
             }
 
             @Override
@@ -58,19 +54,6 @@ public class Limelight extends Subsystem {
         return targetPose;
     }
 
-    /*public void changeCameraMode(boolean visionMode, boolean mainCamera) {
-        if (currentVisionMode != visionMode) {
-            if (visionMode) {
-                NetworkTableInstance.getDefault().getTable("limelight-main").getEntry("ledMode").setNumber(3);
-                NetworkTableInstance.getDefault().getTable("limelight-main").getEntry("camMode").setNumber(0);
-                currentVisionMode = true;
-            } else {
-                NetworkTableInstance.getDefault().getTable("limelight-main").getEntry("ledMode").setNumber(1);
-                NetworkTableInstance.getDefault().getTable("limelight-main").getEntry("camMode").setNumber(1);
-                currentVisionMode = false;
-            }
-        }
-    }*/
     public void useMainCameraAsVision() {
         mMainLimelight.getEntry("ledMode").setNumber(3);
         mMainLimelight.getEntry("camMode").setNumber(0);
@@ -117,10 +100,6 @@ public class Limelight extends Subsystem {
         else
             return 18.7;
     }
-    /*
-    public double getTargetDistanceArea() { // uses area to find distance
-        return (4.9-NetworkTableInstance.getDefault().getTable("limelight-main").getEntry("ta").getDouble(0));
-    }*/
 
     @Override
     public boolean checkSystem() {

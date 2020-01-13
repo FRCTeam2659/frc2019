@@ -283,21 +283,14 @@ public class Drive extends Subsystem {
 	}
 
 	public void driveTurnToAngleWithForwardVelocity(double yOutput) {
-		double angle = getHeadingDegree();
-		double offset = angle % 360;
 		double eps = 1.0;
 		double theta = mLimelight.getTargetX() + angle;
 		double maxTurn = 1;
 		this.yOutput = yOutput;
-		// SmartDashboard.putNumber("Motor Output: ", yOutput);
+		limelightTurnPID.setFinishedRange(eps);
+		imelightTurnPID.setDesiredValue(theta);
 
-		// this.turnPID.setMaxOutput(11);
-		this.limelightTurnPID.setFinishedRange(eps);
-		this.limelightTurnPID.setDesiredValue(theta);
-
-		// System.out.println("LIMELIGHT DESIRED ANGLE: " +
-		// this.limelightTurnPID.getDesiredVal());
-		double x = this.limelightTurnPID.calcPID(angle);
+		double x = limelightTurnPID.calcPID(angle);
 		if (x > maxTurn)
 			x = maxTurn;
         else if (x < -maxTurn)
@@ -312,9 +305,9 @@ public class Drive extends Subsystem {
 		else
 			withinRange = false;
 		if (Math.abs(getHeadingDegree() - theta) < eps)
-			x = 0;
-        //SmartDashboard.putNumber("Motor XOutput: ", x);
-        setOpenLoop(new DriveSignal(yOutput+x, yOutput-x));
+            x = 0;
+            
+        setOpenLoop(new DriveSignal(yOutput + x, yOutput - x));
 	}
 
     public boolean isWithinRange() {
